@@ -72,23 +72,10 @@
       cursor: pointer;
       text-align: center;
     }
-    #prefill-register-btn {
-      display: none;
-      background-color: #28a745;
-      color: #fff;
-      padding: 10px 12px;
-      font-weight: bold;
-      border: none;
-      border-radius: 6px;
-      margin: 15px auto 0;
-      display: block;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
   <h1>Blockchain Product Registry</h1>
-  <button id="connectWalletBtn">🔗 Connect Wallet</button>
   <p id="walletAddress"></p>
 
   <section>
@@ -114,7 +101,6 @@
     <button id="verify-btn" disabled>Verify Product</button>
     <div id="verification-result"></div>
     <div id="qr-result"></div>
-    <button id="prefill-register-btn">📝 Register This Product</button>
     <div id="qr-reader"></div>
     <div class="flash-toggle" id="flash-toggle" style="display:none;">🔦 Toggle Flashlight</div>
   </section>
@@ -159,25 +145,17 @@
     ];
 
     const contractAddress = "0xd5dd56afccfd71ebe8a8bdb800150fed4c93d8c1";
+    const hardcodedWallet = "0x102c2E3F4F39bA1C474B338E0c1737385398f767";
 
-    let web3, contract, userAccount, scanner, currentCameraId, flashOn = false;
+    let web3, contract, scanner, currentCameraId, flashOn = false;
 
-    document.getElementById("connectWalletBtn").addEventListener("click", async () => {
-      if (window.ethereum) {
-        try {
-          web3 = new Web3(window.ethereum);
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          userAccount = accounts[0];
-          contract = new web3.eth.Contract(contractABI, contractAddress);
-          document.getElementById("walletAddress").innerText = "Connected: " + userAccount;
-          document.getElementById("verify-btn").disabled = false;
-        } catch (err) {
-          alert("User denied wallet connection.");
-        }
-      } else {
-        alert("Please install MetaMask.");
-      }
-    });
+    window.onload = async () => {
+      web3 = new Web3("https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID"); // Replace with real Infura/Alchemy URL or localhost
+      contract = new web3.eth.Contract(contractABI, contractAddress);
+      document.getElementById("walletAddress").innerText = "Using Wallet: " + hardcodedWallet;
+      document.getElementById("verify-btn").disabled = false;
+      startScanner();
+    };
 
     document.getElementById("registration-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -190,7 +168,8 @@
       resultDiv.textContent = "";
 
       try {
-        await contract.methods.registerProduct(productId, name, manufacturer, timestamp).send({ from: userAccount });
+        await contract.methods.registerProduct(productId, name, manufacturer, timestamp)
+          .send({ from: hardcodedWallet });
         resultDiv.textContent = "✅ Product Registered!";
         resultDiv.className = "success";
         e.target.reset();
@@ -208,7 +187,7 @@
       resultDiv.className = "";
 
       try {
-        const res = await contract.methods.verifyProduct(pid).call({ from: userAccount });
+        const res = await contract.methods.verifyProduct(pid).call({ from: hardcodedWallet });
         if (res[0]) {
           resultDiv.innerHTML = `✅ <strong>Valid Product</strong><br><strong>Name:</strong> ${res[1]}<br><strong>Manufacturer:</strong> ${res[2]}`;
           resultDiv.className = "success";
@@ -236,10 +215,9 @@
             async (decodedText) => {
               document.getElementById("verify-productId").value = decodedText;
               document.getElementById("qr-result").innerHTML = `📦 QR Detected: <strong>${decodedText}</strong>`;
-              document.getElementById("prefill-register-btn").style.display = "block";
 
               try {
-                const res = await contract.methods.verifyProduct(decodedText).call({ from: userAccount });
+                const res = await contract.methods.verifyProduct(decodedText).call({ from: hardcodedWallet });
                 const resultDiv = document.getElementById("verification-result");
                 if (res[0]) {
                   resultDiv.innerHTML = `✅ <strong>Valid Product</strong><br><strong>Name:</strong> ${res[1]}<br><strong>Manufacturer:</strong> ${res[2]}`;
@@ -281,15 +259,6 @@
         }
       }
     });
-
-    document.getElementById("prefill-register-btn").addEventListener("click", () => {
-      const scannedId = document.getElementById("verify-productId").value;
-      document.getElementById("reg-productId").value = scannedId;
-      document.getElementById("reg-name").focus();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-
-    window.onload = startScanner;
   </script>
 </body>
 </html>
