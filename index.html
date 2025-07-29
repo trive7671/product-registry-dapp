@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product Registry System</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      color: #00bfff;
+      text-align: center;
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      border: 2px solid #00bfff;
+      border-radius: 12px;
+      background-color: #111;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background-color: #00bfff;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #009acd;
+    }
+    label {
+      margin-top: 10px;
+      display: block;
+      font-weight: bold;
+    }
+    #status {
+      margin-top: 20px;
+      padding: 10px;
+      background-color: #222;
+      border-radius: 8px;
+      min-height: 40px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Product Registry System</h1>
+  <div class="container">
+    <button onclick="connectWallet()">🔌 Connect MetaMask</button>
+
+    <label>Product ID</label>
+    <input type="text" id="productId" placeholder="e.g., P001"/>
+
+    <label>Product Name</label>
+    <input type="text" id="productName" placeholder="e.g., iPhone 15"/>
+
+    <label>Manufacturer</label>
+    <input type="text" id="manufacturer" placeholder="e.g., Apple"/>
+
+    <label>Manufacture Date (UNIX Timestamp)</label>
+    <input type="number" id="mDate" placeholder="e.g., 1680000000"/>
+
+    <button onclick="registerProduct()">📦 Register Product</button>
+    <button onclick="verifyProduct()">🔍 Verify Product</button>
+
+    <hr style="margin: 30px 0; border-color: #444;"/>
+
+    <label>New Owner Address</label>
+    <input type="text" id="newOwner" placeholder="0x..."/>
+    <button onclick="transferOwnership()">🔁 Transfer Ownership</button>
+
+    <div id="status"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <script>
+    const contractAddress = "0x06ba1e4c566a1022b03dad58eb014ee5891bda71"; // Your deployed contract address
+    const abi = [
+      "function registerProduct(string,string,string,uint256) public",
+      "function verifyProduct(string) public view returns (bool,string,string)",
+      "function transferOwnership(address) public",
+      "function getOwner() public view returns (address)"
+    ];
+
+    let provider, signer, contract;
+
+    async function connectWallet() {
+      if (window.ethereum) {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        contract = new ethers.Contract(contractAddress, abi, signer);
+        const address = await signer.getAddress();
+        document.getElementById("status").innerText = `✅ Connected: ${address}`;
+      } else {
+        alert("MetaMask not detected!");
+      }
+    }
+
+    async function registerProduct() {
+      const pid = document.getElementById("productId").value;
+      const name = document.getElementById("productName").value;
+      const manufacturer = document.getElementById("manufacturer").value;
+      const mDate = document.getElementById("mDate").value;
+
+      if (!pid || !name || !manufacturer || !mDate) {
+        document.getElementById("status").innerText = "❌ Fill in all fields.";
+        return;
+      }
+
+      try {
+        const tx = await contract.registerProduct(pid, name, manufacturer, mDate);
+        await tx.wait();
+        document.getElementById("status").innerText = `✅ Product registered: ${pid}`;
+      } catch (err) {
+        document.getElementById("status").innerText = `❌ Error: ${err.message}`;
+      }
+    }
+
+    async function verifyProduct() {
+      const pid = document.getElementById("productId").value;
+      if (!pid) {
+        document.getElementById("status").innerText = "❌ Enter a Product ID.";
+        return;
+      }
+
+      try {
+        const result = await contract.verifyProduct(pid);
+        if (result[0]) {
+          document.getElementById("status").innerText =
+            `✅ Found: ${result[1]} by ${result[2]}`;
+        } else {
+          document.getElementById("status").innerText = "❌ Product not found.";
+        }
+      } catch (err) {
+        document.getElementById("status").innerText = `❌ Error: ${err.message}`;
+      }
+    }
+
+    async function transferOwnership() {
+      const newOwner = document.getElementById("newOwner").value;
+      if (!newOwner) {
+        document.getElementById("status").innerText = "❌ Enter new owner address.";
+        return;
+      }
+
+      try {
+        const tx = await contract.transferOwnership(newOwner);
+        await tx.wait();
+        document.getElementById("status").innerText = `✅ Ownership transferred to ${newOwner}`;
+      } catch (err) {
+        document.getElementById("status").innerText = `❌ Error: ${err.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
